@@ -435,17 +435,17 @@ public class KtXmlWriter(
         }
 
         if (isPartiallyOpenTag) {
-            finishPartialStartTag(true)
-        } else {
-            writer.append("</")
-            val actualPrefix = prefixAt(depth)
-            if (actualPrefix.isNotEmpty()) {
-                writer.append(actualPrefix)
-                writer.append(':')
-            }
-            writer.append(localName)
-            writer.append('>')
+            finishPartialStartTag(false)
         }
+
+        writer.append("</")
+        val actualPrefix = prefixAt(depth)
+        if (actualPrefix.isNotEmpty()) {
+            writer.append(actualPrefix)
+            writer.append(':')
+        }
+        writer.append(localName)
+        writer.append('>')
     }
 
     override fun comment(text: String) {
