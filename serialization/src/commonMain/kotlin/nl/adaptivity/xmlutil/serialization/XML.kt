@@ -270,7 +270,7 @@ public class XML(
 
                 XmlDeclMode.Charset -> {
                     // TODO support non-utf8 encoding
-                    target.startDocument(config.xmlVersion.versionString, encoding = "UTF-8")
+                    target.startDocument(config.xmlVersion.versionString, encoding = "utf-8")
                 }
 
                 XmlDeclMode.None,

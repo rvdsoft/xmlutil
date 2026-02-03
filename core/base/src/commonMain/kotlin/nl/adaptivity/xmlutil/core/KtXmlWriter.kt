@@ -70,7 +70,7 @@ public class KtXmlWriter(
     /**
      * Determine whether a trailing space is used before the end of a self-closing tag.
      */
-    public var addTrailingSpaceBeforeEnd: Boolean = true
+    public var addTrailingSpaceBeforeEnd: Boolean = false
 
     private var isPartiallyOpenTag: Boolean = false
 
