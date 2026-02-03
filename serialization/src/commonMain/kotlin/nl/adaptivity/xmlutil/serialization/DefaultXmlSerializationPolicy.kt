@@ -294,6 +294,23 @@ public open class DefaultXmlSerializationPolicy(builder: Builder) : XmlSerializa
             }
         }
 
+        // leave attributes unchanged
+        if (outputKind == OutputKind.Attribute) return name
+
+        // if there is no parent descriptor => this is the top/root element:
+        // keep whatever the super policy returned (so root keeps its prefix if annotated)
+        if (tagParent.descriptor == null) return name
+
+        // if the element explicitly specifies a prefix (via @XmlSerialName(prefix = "...")),
+        // respect it
+        val annotated = useName.annotatedName
+        if (annotated != null && annotated.prefix.isNotEmpty()) return name
+
+        // otherwise, if it has a namespace, force an empty prefix so element goes into default ns
+        if (name.namespaceURI.isNotEmpty()) {
+            return QName("", name.localPart, name.namespaceURI)
+        }
+
         return name
     }
 
