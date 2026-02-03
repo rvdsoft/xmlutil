@@ -3,7 +3,6 @@ jdk:
 env:
     JITPACK: "true"
 install:
-    # 1. We skip signing tasks (-x sign...)
-    # 2. We skip tests to speed it up (-x test)
-    # 3. We run the standard publish task JitPack expects
-    - ./gradlew publishToMavenLocal -x signReleasePublication -x signKotlinMultiplatformPublication -x signJvmPublication -x signAndroidReleasePublication -x test
+    # We use -Psigning.required=false to tell the plugin not to complain.
+    # We use assemble + publishToMavenLocal without naming specific sign tasks.
+    - ./gradlew assemble publishToMavenLocal -Psigning.required=false -x test
