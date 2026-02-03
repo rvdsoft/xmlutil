@@ -53,11 +53,7 @@ public enum class EventType {
 
         override fun writeEvent(writer: XmlWriter, reader: XmlReader) {
             writer.startTag(reader.namespaceURI, reader.localName, reader.prefix)
-            // Note that some readers expose namespace attributes as attributes (DOM!!), others don't.
-            // Both need to be handled
-            for (attr in reader.namespaceDecls) {
-                writer.namespaceAttr(attr.prefix, attr.namespaceURI)
-            }
+
             for (i in 0 until reader.attributeCount) {
                 val attrNs = reader.getAttributeNamespace(i)
                 if (attrNs!=XMLConstants.XMLNS_ATTRIBUTE_NS_URI) {
@@ -74,6 +70,12 @@ public enum class EventType {
                         reader.getAttributeValue(i)
                     )
                 }
+            }
+
+            // Note that some readers expose namespace attributes as attributes (DOM!!), others don't.
+            // Both need to be handled
+            for (attr in reader.namespaceDecls) {
+                writer.namespaceAttr(attr.prefix, attr.namespaceURI)
             }
         }
     },
