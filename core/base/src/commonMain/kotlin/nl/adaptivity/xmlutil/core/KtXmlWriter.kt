@@ -338,19 +338,20 @@ public class KtXmlWriter(
             }
         }
 
-        writer.append("<?xml version='$verString'")
+        // Use double quotes for XML declaration attributes
+        writer.append("<?xml version=\"").append(verString).append('"')
 
         val effectiveEncoding = encoding ?: "UTF-8"
 
         if (!xmlDeclMode.isMinimal || encoding != null) { // only write encoding if specified
-            writer.append(" encoding='")
-            writeEscapedText(effectiveEncoding, EscapeMode.ATTRCONTENTAPOS)
-            writer.append('\'')
+            writer.append(" encoding=\"")
+            writeEscapedText(effectiveEncoding, EscapeMode.ATTRCONTENTQUOT)
+            writer.append('"')
 
             if (standalone != null) {
-                writer.append(" standalone='")
+                writer.append(" standalone=\"")
                 writer.append(if (standalone) "yes" else "no")
-                writer.append('\'')
+                writer.append('"')
             }
         }
         if (addTrailingSpaceBeforeEnd) writer.append(' ')
