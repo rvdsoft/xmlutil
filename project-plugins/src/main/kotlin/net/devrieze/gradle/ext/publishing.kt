@@ -21,17 +21,19 @@
 package net.devrieze.gradle.ext
 
 import io.github.xmlutil.plugin.isSnapshot
+import org.gradle.api.DefaultTask
 import org.gradle.api.Project
 import org.gradle.api.Task
+import org.gradle.api.attributes.Category
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.api.publish.maven.tasks.PublishToMavenRepository
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.bundling.Jar
-import org.gradle.kotlin.dsl.assign
-import org.gradle.kotlin.dsl.configure
-import org.gradle.kotlin.dsl.findByType
-import org.gradle.kotlin.dsl.register
-import org.gradle.kotlin.dsl.withType
+import org.gradle.kotlin.dsl.*
 import org.gradle.plugins.signing.SigningExtension
 
 fun Project.doPublish(
@@ -151,33 +153,26 @@ fun Project.doPublish(
 }
 
 private fun Project.recordPublicationCoordinates() {
-    if (name == "xmlutil-bom") return
-
     val projectName = name
+
+    if (projectName == "xmlutil-bom") return
 
     configure<PublishingExtension> {
         @Suppress("UnstableApiUsage")
-        val coordinateFolder = isolated.rootProject.projectDirectory.dir("build/coordinates")
+        val coordinateFolder = isolated.projectDirectory.dir("${isolated.buildTreePath}/coordinates")
 
-        val exportCoordinatesTask = tasks.register("exportArtifactCoordinates") {
-            val publications = publications
-            val outputFile = coordinateFolder.file("${projectName}.txt").asFile
-            outputs.file(outputFile)
+        val exportCoordinatesTask = tasks.register<WriteCoordinatesTask>("exportArtifactCoordinates") {
+            outputFile.set(coordinateFolder.file("${projectName}.txt").asFile)
 
-            doLast {
-                coordinateFolder.asFile.mkdirs()
-                outputFile.bufferedWriter().use { writer ->
-                    for(p in publications) {
-                        if (p is MavenPublication && !(p.artifactId.endsWith("-metadata") ||
-                                    p.artifactId.endsWith("-kotlinMultiplatform") ||
-                                    p.artifacts.any { it.extension == "klib" }
-                                    )) {
+        }
 
-                            writer.write("${p.groupId}:${p.artifactId}:${p.version}\n")
-                        }
-                    }
-                }
+        configurations.create("coordinatesExport") {
+            isCanBeConsumed = true
+            isCanBeResolved = false
+            attributes {
+                attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category::class.java, "BOM-coordinate"))
             }
+            outgoing.artifact(exportCoordinatesTask)
         }
 
         tasks.matching { name.startsWith("generatePomFileFor") && name.endsWith("Publication") }.configureEach() {
@@ -185,6 +180,26 @@ private fun Project.recordPublicationCoordinates() {
         }
     }
 }
+
+abstract class WriteCoordinatesTask: DefaultTask() {
+    @get:OutputFile
+    abstract val outputFile: RegularFileProperty
+
+    @get:Internal
+    val publications = project.extensions.getByType<PublishingExtension>().publications
+
+    @TaskAction
+    fun run() {
+        val file = outputFile.get().asFile
+        file.parentFile.mkdirs()
+        file.bufferedWriter().use { writer ->
+            publications.filterIsInstance<MavenPublication>().forEach { pub ->
+                writer.write("${pub.groupId}:${pub.artifactId}:${pub.version}\n")
+            }
+        }
+    }
+}
+
 
 fun Project.configureSigningOfPublications() {
     configure<SigningExtension> {
