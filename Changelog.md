@@ -1,3 +1,9 @@
+# 1.0.2.1
+*(Aug 25, 2026)<br />*
+Fixes:
+- Fix the published BOM. Otherwise there are no changes. If you don't need the
+  BOM you can stay on 1.0.2
+
 # 1.0.2
 *(Aug 8, 2026)<br />*
 Changes:
