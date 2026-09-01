@@ -1,3 +1,142 @@
+# 1.0.2.1
+*(Aug 25, 2026)<br />*
+Fixes:
+- Fix the published BOM. Otherwise there are no changes. If you don't need the
+  BOM you can stay on 1.0.2
+
+# 1.0.2
+*(Aug 8, 2026)<br />*
+Changes:
+- Make FormatCache a public interface with `XmlUtilInternal` interface.
+  This allows for external implementation, with appropriate warnings.
+
+Fixes:
+- Fix LRU cache to be resilient to re-entry in the function argument to getOrPut
+- Fix adding documentType instances to a document. Document types no longer
+  have an initial owning document and having no owning document, the owning
+  document will be set.
+- Fix stale service specifications only relevant for xmlserializable.
+
+# 1.0.1 Cache it well
+*(Jul 8, 2026)<br />*
+Fixes:
+- Fix LRU cache so that it properly evicts and maintains its size (#372).
+- Fix reading larger from kotlinx.io sources (#373)
+- Fix close in PseudoBufferedReader (#374), this is probably never called,
+  but still incorrect. Thanks to @m-sasha for reporting many smaller bugs #374 - #382
+- Fix serialization of negative values for XmlFloat/XmlDouble and related
+  serializers (#375).
+- Fix escaping of 0x1f in KtXmlWriter (#376).
+- Allow writing of BOM in CData content, but disallow the sentinal character (0xffff)
+  per the XML standards. Also tidy the error messages (#377).
+- Fix DomWriter.getPrefixes that was incorrectly handling checks for already
+  declared prefixes (#379).
+- Fix writing namespace attributes through XmlEvent.Attribute (#380). Note
+  that the parsing code does not generate Attribute events, so most use cases
+  are not hit by this bug.
+- Fix getPrefix in StartElementEvent (#381). It used a property rather
+  than parameter in the fallback.
+- Fix reading unicode characters in kotlinx.io.Source reading as well
+  as native InputStreamReader (some of the code is common, and was buggy in both).
+Changes:
+- Add support to specify the cache size of the underlying cache for LayeredCache 
+  and `defaultSharedFormatCache()`
+- Add support for a `PerSerializationFormatCache` that allows for caching within
+  individual invocations to a format. 
+- Snapshot releases no longer include javadoc/source artifacts, nor deprecated
+  native targets. This should reduce the overall publication size/burden.
+- Make InputStreamReader and SourceUnicodeReader have dedicated single character
+  read implementations rather than reading into an array of length 1.
+
+# 1.0.0 To infinity and beyond
+*(Jun 28, 2026)<br />*
+Fixes:
+- Remove usages of removeLast() to avoid issues on Android below 
+  API-level 35. Fixes #367.
+- Fix Attr in the common DOM implementation not having its owner set/tracked
+  appropriately.
+- Ensure that the module structure matches the old structure from
+  1.0.0-rc2 and before. 
+
+Changes:
+- The core-compat module is no longer published. Use core/core-jvm, and if integration with
+  the native parser is needed, add the core-jdk or core-android modules. 
+
+# 1.0.0-rc3 The full DOM
+*(Jun 6, 2026)<br />*
+Features:
+- There is now a common DOM implementation on all platforms that cooperates
+  with the platform's DOM implementation (except for native targets that have
+  none).
+- Add a getOrCreatePrefix function that can be used to get an appropriate
+  prefix for a given namespace. If there is no existing prefix, one will be
+  created and added to the tag. If a prefixHint is given, this will be
+  prioritised (to select from multiple prefixes)/to create a prefix if none
+  is registered.
+- Exceptions will now have the ability to provide more extensive location
+  information. This includes adding file name information to the exception.
+- The parser now partially parses internal DTD's and supports entities as
+  per the standard. At this point external DTDs and entities are not
+  supported (this is not a validating parser.). The work includes support
+  of injecting entity parsing results into the parser (i.e. defining
+  entities containing tags).
+
+Incompatible API:
+- There are a few incompatible changes in the DOM API. In particular: some return
+  values have been made nullable (as they are defined as such explicitly by the
+  DOM specification); NamedNodeList is made generic with Node as the base type
+  (rather than Attr) -  Note that for the attributes of an element, the generic type
+  is still Attr; Some methods on platform only is 
+
+Changes:
+- Move the native DOM implementation to the common module and make it available
+  to all platforms (making it also available on nodejs). The implementation has
+  also been extended to implement most DOM 3 features. Note that much of this
+  is still experimental, and has partial tests.
+- Note that the JavaScript implementation has some additional code that declares properties
+  that match the native DOM api (it does not yet have isInstance compatibility)
+- As a result of DOM work some signatures have been made nullable as that is
+  required per the DOM specification (and semantics).
+- Add new context element to xml exception that should allow for more detailed
+  context to be provided in exceptions. This generally covers element names. This
+  helps in cases of attributes where the location information is insufficient 
+  (it is positioned at the start or end of the containing tag).
+- Parsing of single characters now allows for xml Whitespace and will collapse the
+  whitespace if there are more than 2 characters. It should be noted that to parse
+  a single space character this must not be surrounded by whitespace (collapsing
+  only applies if there are 2 or more characters and this would collapse to an
+  empty string). The old behaviour only allowed a single character without
+  surrounding whitespace.
+- Standards compliant line ending handling. \n\r is not collapsed as a single
+  line end anymore. Characters #x85 and #2028 are now handled as line end (unless
+  preceded by \r)  
+- Update kotlinx.io support to 0.9.0, atomicfu to 0.31.0, kotlinx.serialization
+  to 1.10.0, kotlinx.benchmark to 0.4.16, kotlin to 2.3.10, junit to 5.14.3.
+- Always expand entities in attribute values (causing an exception if the entity
+  is not known). Note that there is not yet a mechanism to handle entitites in
+  the platform independent parser.
+- Dom2 on Android, JVM and JS now inherits the regular dom interfaces (native
+  has no DOM so no inheritance). Overall make the dom implementation work
+  better with native node types.
+- The JavaScript implementation no longer contains the IDom interfaces/package.
+  This was an implementation package.
+- Parsing of strings by the generic parser now no longer uses a StringReader,
+  but rather handles the strings directly (in a StringInOutBuffer) leading
+  to speed and memory usage improvements (no additional buffering is needed
+  for strings already in memory.
+- Per the XML standard processing instructions are actually allowed in the XML
+  body. Allow them here.
+- Add a newWriter implementation that targets platform nodes. Make newReader
+  consume platform nodes
+
+Fixes:
+- Various small fixes in core (mainly DOM) as a result of asking copilot to
+  find bugs.
+- Make ElementSerializer work better in an existing document context by
+  extracting the document from the decoder if possible.
+- Fix serialization of contextual properties as attributes where preceded by
+  elements (#364). 
+
 # 1.0.0-rc2
 *(Jan 18, 2026)<br />*
 Features:

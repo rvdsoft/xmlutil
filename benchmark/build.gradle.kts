@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025.
+ * Copyright (c) 2024-2026.
  *
  * This file is part of xmlutil.
  *
@@ -18,6 +18,7 @@
  * permissions and limitations under the License.
  */
 
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
 plugins {
@@ -34,13 +35,14 @@ plugins {
 config {
     generateJavaModules = false
     kotlinApiVersion = KotlinVersion.DEFAULT
+    generalJvmTarget = JvmTarget.JVM_17
 }
 
 kotlin {
     jvm()
 
     sourceSets {
-        val commonMain by getting {
+        commonMain {
             dependencies {
                 implementation(projects.core)
                 implementation(projects.xmlschema)
@@ -51,16 +53,16 @@ kotlin {
                 implementation(libs.datetime)
             }
         }
-        val jvmMain by getting {
+        jvmMain {
             dependencies {
                 implementation(projects.coreJdk)
 //                implementation(libs.jmhCore)
                 implementation(kotlin("test-junit5"))
             }
         }
-        val jvmTest by getting {
+        jvmTest {
             dependencies {
-                runtimeOnly(libs.junit5.engine)
+                runtimeOnly(libs.junit.engine)
             }
         }
     }

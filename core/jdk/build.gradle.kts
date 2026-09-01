@@ -19,6 +19,7 @@
  */
 
 import net.devrieze.gradle.ext.doPublish
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 
 plugins {
     id("projectPlugin")
@@ -27,7 +28,6 @@ plugins {
     signing
     alias(libs.plugins.dokka)
     idea
-    alias(libs.plugins.binaryValidator)
 }
 
 base {
@@ -41,6 +41,17 @@ config {
 
 kotlin {
     explicitApi()
+
+    @OptIn(ExperimentalAbiValidation::class)
+    abiValidation {
+
+        filters {
+            exclude {
+                annotatedWith.add("nl.adaptivity.xmlutil.XmlUtilInternal")
+            }
+        }
+    }
+
 
     target {
         tasks.withType<Jar>().named(artifactsTaskName) {
@@ -62,19 +73,10 @@ dependencies {
     testImplementation(projects.testutil)
     testImplementation(projects.serialization)
     testImplementation(kotlin("test-junit5"))
-    testImplementation(libs.junit5.api)
+    testImplementation(libs.junit.api)
 
-    testRuntimeOnly(libs.junit5.engine)
+    testRuntimeOnly(libs.junit.engine)
     testRuntimeOnly(libs.woodstox)
-}
-
-apiValidation {
-    nonPublicMarkers.add("nl.adaptivity.xmlutil.XmlUtilInternal")
-    ignoredPackages.apply {
-        add("nl.adaptivity.xmlutil.core.internal")
-        add("nl.adaptivity.xmlutil.core.impl")
-        add("nl.adaptivity.xmlutil.util.impl")
-    }
 }
 
 publishing {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025.
+ * Copyright (c) 2024-2026.
  *
  * This file is part of xmlutil.
  *
@@ -34,6 +34,7 @@ public sealed class XmlEvent(public val extLocationInfo: XmlReader.LocationInfo?
 
     }
 
+
     public open class TextEvent(
         extLocationInfo: XmlReader.LocationInfo?,
         override val eventType: EventType,
@@ -51,6 +52,29 @@ public sealed class XmlEvent(public val extLocationInfo: XmlReader.LocationInfo?
 
         override fun toString(): String {
             return "$eventType - \"$text\" (${extLocationInfo ?: ""})"
+        }
+    }
+
+    /**
+     * Class holding document declaration information. Note that the internal subset is not recorded
+     * at all with this.
+     */
+    @ExperimentalXmlUtilApi
+    public class DocumentDeclEvent(
+        extLocationInfo: XmlReader.LocationInfo?,
+        public val docTypeName: String,
+        public val docTypePublicId: String?,
+        public val docTypeSystemId: String?
+    ): XmlEvent(extLocationInfo) {
+        override val eventType: EventType get() = EventType.DOCDECL
+
+        override fun writeTo(writer: XmlWriter) {
+            val content = buildString {
+                append(docTypeName)
+                if (docTypePublicId != null) append(" PUBLIC \"$docTypePublicId\" \"$docTypeSystemId\"")
+                else if (docTypeSystemId != null) append(" SYSTEM \"$docTypeSystemId\"")
+            }
+            writer.docdecl(content)
         }
     }
 
@@ -239,7 +263,7 @@ public sealed class XmlEvent(public val extLocationInfo: XmlReader.LocationInfo?
 
         internal fun getPrefix(namespaceURI: String): String? {
             return namespaceHolder.getPrefix(namespaceURI)
-                ?: parentNamespaceContext.getPrefix(namespaceUri)
+                ?: parentNamespaceContext.getPrefix(namespaceURI)
         }
 
         internal fun getNamespaceURI(prefix: String): String? {
@@ -302,12 +326,15 @@ public sealed class XmlEvent(public val extLocationInfo: XmlReader.LocationInfo?
         override fun writeTo(writer: XmlWriter) {
             if (hasNamespaceUri()) {
                 val nsPrefix = if (prefix.isEmpty()) "" else localName
-                writer.namespaceAttr(nsPrefix, namespaceUri)
+                writer.namespaceAttr(nsPrefix, value)
             } else {
                 writer.attribute(namespaceUri, localName, prefix, value)
             }
         }
 
+        /**
+         * Determines whether this attribute is a namespace declaration.
+         */
         public fun hasNamespaceUri(): Boolean {
             return XMLConstants.XMLNS_ATTRIBUTE_NS_URI == namespaceUri ||
                     (prefix.isEmpty() && XMLConstants.XMLNS_ATTRIBUTE == localName)

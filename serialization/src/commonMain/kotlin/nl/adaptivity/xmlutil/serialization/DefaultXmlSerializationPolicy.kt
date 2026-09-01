@@ -336,7 +336,10 @@ public open class DefaultXmlSerializationPolicy(builder: Builder) : XmlSerializa
 
     override fun onElementRepeated(parentDescriptor: XmlDescriptor, childIndex: Int) {
         if (throwOnRepeatedElement) {
-            throw XmlSerialException("Duplicate child (${parentDescriptor.friendlyChildName(childIndex)} found in ${parentDescriptor.tagName} outside of eluded list context")
+            throw XmlSerialException(
+                message = "Duplicate child (${parentDescriptor.friendlyChildName(childIndex)} found outside of eluded list context",
+                errContext = "${parentDescriptor.tagName}/${parentDescriptor.friendlyChildName(childIndex)}"
+            )
         }
     }
 
@@ -371,7 +374,10 @@ public open class DefaultXmlSerializationPolicy(builder: Builder) : XmlSerializa
         fun String.toChildIndex(): Int = when (this) {
             "*" -> XmlOrderConstraint.OTHERS
             else -> nameToIdx[this]
-                ?: throw XmlSerialException("Could not find the attribute in ${parentDescriptor.serialName} with the name: $this\n  Candidates were: ${nameToIdx.keys.joinToString()}")
+                ?: throw XmlSerialException(
+                    "Could not find the attribute with the name: $this\n  Candidates were: ${nameToIdx.keys.joinToString()}",
+                    errContext = "${parentDescriptor.serialName}/$this",
+                )
         }
 
         val orderConstraints = HashSet<XmlOrderConstraint>(mapCapacity)
@@ -509,8 +515,8 @@ public open class DefaultXmlSerializationPolicy(builder: Builder) : XmlSerializa
         }
     }
 
-    override fun ignoredSerialInfo(message: String) {
-        if (pedantic) throw XmlSerialException(message)
+    override fun ignoredSerialInfo(message: String, errContext: () -> String) {
+        if (pedantic) throw XmlSerialException(message, errContext = errContext())
     }
 
     /**

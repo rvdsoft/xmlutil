@@ -1,21 +1,21 @@
 /*
- * Copyright (c) 2024.
+ * Copyright (c) 2024-2026.
  *
  * This file is part of xmlutil.
  *
- * This file is licenced to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You should have received a copy of the license with the source distribution.
- * Alternatively, you may obtain a copy of the License at
+ * This file is licenced to you under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance
+ * with the License.  You should have  received a copy of the license
+ * with the source distribution. Alternatively, you may obtain a copy
+ * of the License at
  *
  *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  */
 
 package nl.adaptivity.xmlutil.util
@@ -31,6 +31,7 @@ import nl.adaptivity.xmlutil.XmlReader
 import nl.adaptivity.xmlutil.XmlSerializer
 import nl.adaptivity.xmlutil.XmlWriter
 import nl.adaptivity.xmlutil.xml
+import kotlin.math.sign
 
 public typealias XmlDouble = @Serializable(XmlOnlyDoubleSerializer::class) Double
 
@@ -42,21 +43,23 @@ public object XmlDoubleSerializer : KSerializer<Double> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("xmlDouble", PrimitiveKind.STRING)
 
     override fun serialize(encoder: Encoder, value: Double): Unit = when {
+        value.isFinite() -> encoder.encodeDouble(value)
         value.isNaN() -> encoder.encodeString("NaN")
-        value > Double.MAX_VALUE -> encoder.encodeString("INF")
-        value < Double.MIN_VALUE -> encoder.encodeString("INF")
-        else -> encoder.encodeString(value.toString())
+        value.sign > 0 -> encoder.encodeString("INF")
+        else -> encoder.encodeString("-INF")
     }
 
     override fun deserialize(decoder: Decoder): Double = when (val s = decoder.decodeString()) {
         "INF" -> Double.POSITIVE_INFINITY
         "-INF" -> Double.NEGATIVE_INFINITY
         "NaN" -> Double.NaN
-/*
-        "Infinity" -> throw NumberFormatException("Java Infinitity is not valid as XML")
-        "-Infinity" -> throw NumberFormatException("Java -Infinitity is not valid as XML")
-*/
-        else -> s.toDouble()
+        else -> try {
+            s.toDouble()
+        } catch (e: NumberFormatException) {
+            val m = e.message
+            if (m != null && s in m) throw e
+            throw NumberFormatException("For input string: \"$s\"")
+        }
     }
 }
 
@@ -80,10 +83,10 @@ public object XmlOnlyDoubleSerializer : XmlSerializer<Double> {
     ) {
         // we ignore the output as we don't know how the string should be serialized
         when {
+            value.isFinite() -> encoder.encodeDouble(value)
             value.isNaN() -> encoder.encodeString("NaN")
-            value > Double.MAX_VALUE -> encoder.encodeString("INF")
-            value < Double.MIN_VALUE -> encoder.encodeString("INF")
-            else -> encoder.encodeString(value.toString())
+            value.sign > 0 -> encoder.encodeString("INF")
+            else -> encoder.encodeString("-INF")
         }
     }
 

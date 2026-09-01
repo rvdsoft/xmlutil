@@ -1,22 +1,21 @@
 [versions]
+# Used directly by ProjectPlugin
 apiVersion = "2.3"
-binaryValidator = "0.18.1"
-dateTime = "0.7.1"
-dokka = "2.1.0"
-javaVersion = "8"
+dateTime = "0.8.0"
+dokka = "2.2.0"
 jmh = "0.7.3"
 jmh-core = "1.37"
-benchmark = "0.4.15"
-junit5-jupiter = "5.14.1"
-kotlin = "2.3.0"
-kotlinx-serialization = "1.10.0-RC"
-kotlinx-io = "0.8.2"
+benchmark = "0.4.17"
+junit-jupiter = "6.1.2"
+kotlin = "2.4.10"
+kotlinx-serialization = "1.11.0"
+kotlinx-io = "0.9.0"
 kxml2 = "2.3.0"
-woodstox = "7.1.1"
-xmlutil = "1.0.0-rc2"
-
-httpComponents = "4.5.14"
-httpComponents5 = "5.6"
+woodstox = "7.2.1"
+xmlutil = "1.0.2.1"
+httpComponents5 = "5.6.1"
+atomicfu = "0.33.0"
+mockery = "3.4.2"
 
 [libraries]
 jmhCore = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh-core"}
@@ -25,23 +24,23 @@ woodstox = { module = "com.fasterxml.woodstox:woodstox-core", version.ref = "woo
 
 httpclient = { module = "org.apache.httpcomponents.client5:httpclient5", version.ref="httpComponents5" }
 
-junit5-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit5-jupiter" }
-junit5-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit5-jupiter" }
+junit-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit-jupiter" }
+junit-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit-jupiter" }
+junit-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "junit-jupiter" }
 
 datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "dateTime" }
-kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin"}
 benchmark-runtime = { module = "org.jetbrains.kotlinx:kotlinx-benchmark-runtime", version.ref = "benchmark"}
 serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-serialization" }
 serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 kotlinx-io-core = { module="org.jetbrains.kotlinx:kotlinx-io-core", version.ref="kotlinx-io" }
-kotlinx-atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version = "0.29.0" }
+kotlinx-atomicfu = { module = "org.jetbrains.kotlinx:atomicfu", version.ref = "atomicfu" }
 kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5", version.ref = "kotlin" }
 
 [plugins]
-binaryValidator = { id = "org.jetbrains.kotlinx.binary-compatibility-validator", version.ref = "binaryValidator" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 jmh = { id = "me.champeau.jmh", version.ref = "jmh" }
 benchmark = { id = "org.jetbrains.kotlinx.benchmark", version.ref = "benchmark" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 allopen = { id = "org.jetbrains.kotlin.plugin.allopen", version.ref = "kotlin" }
+mockery = { id = "dev.mokkery", version.ref = "mockery" }

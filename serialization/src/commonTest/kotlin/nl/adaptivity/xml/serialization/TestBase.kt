@@ -30,6 +30,11 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.modules.EmptySerializersModule
 import kotlinx.serialization.modules.SerializersModule
 import nl.adaptivity.xmlutil.*
+import nl.adaptivity.xmlutil.core.KtXmlReader
+import nl.adaptivity.xmlutil.core.impl.multiplatform.StringReader
+import nl.adaptivity.xmlutil.core.internal.StringInOutBuffer
+import nl.adaptivity.xmlutil.dom.PlatformDOMImplementation
+import nl.adaptivity.xmlutil.dom2.Document
 import nl.adaptivity.xmlutil.serialization.*
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -93,7 +98,7 @@ internal fun defaultXmlFormat(serializersModule: SerializersModule = EmptySerial
         policy {
             autoPolymorphic = false
             typeDiscriminatorName = null
-            formatCache = TestFormatCache(LayeredCache())
+            formatCache = TestFormatCache(LayeredCache(17))
         }
         xmlDeclMode = XmlDeclMode.None
     }
@@ -115,6 +120,7 @@ abstract class XmlTestBase<T>(
     val value: T,
     val serializer: KSerializer<T>,
     val serializersModule: SerializersModule = EmptySerializersModule(),
+    @Suppress("DEPRECATION")
     protected val baseXmlFormat: XML = XML.v1.recommended(serializersModule) {
         policy {
             autoPolymorphic = false
@@ -146,9 +152,36 @@ abstract class XmlTestBase<T>(
     }
 
     @Test
-    open fun testGenericDeserializeXml() {
-        val reader = xmlStreaming.newGenericReader(expectedXML)
+    open fun testGenericDeserializeXmlFromReader() {
+        val r = StringReader(expectedXML)
+        val reader = xmlStreaming.newGenericReader(r)
         assertEquals(value, baseXmlFormat.decodeFromReader(serializer, reader))
+    }
+
+    @Test
+    open fun testGenericDeserializeXmlFromString() {
+        val reader = KtXmlReader(StringInOutBuffer(expectedXML))
+        assertEquals(value, baseXmlFormat.decodeFromReader(serializer, reader))
+    }
+
+    @Test
+    open fun testDomSerializeXml() {
+        val expectedDom = xmlStreaming.platformDOMImplementation
+            .parse(expectedXML)
+
+        val actualReader = xmlStreaming.newReader(expectedDom)
+
+        assertEquals(value, baseXmlFormat.decodeFromReader(serializer, actualReader))
+    }
+
+    @Test
+    open fun testDomDeserializeXml() {
+        val inputDom = xmlStreaming.platformDOMImplementation
+            .parse(expectedXML)
+
+        val actualReader = xmlStreaming.newReader(inputDom)
+
+        assertEquals(value, baseXmlFormat.decodeFromReader(serializer, actualReader))
     }
 
 }
@@ -166,12 +199,12 @@ abstract class TestBase<T>(
     value: T,
     serializer: KSerializer<T>,
     serializersModule: SerializersModule = EmptySerializersModule(),
-    baseXmlFormat: XML = XML.v1.recommended(serializersModule) {
+    baseXmlFormat: XML = XML.v1(serializersModule, { ->
         policy {
             typeDiscriminatorName = null
         }
         xmlDeclMode = XmlDeclMode.None
-    },
+    }),
     private val baseJsonFormat: Json = Json {
         defaultJsonTestConfiguration()
         this.serializersModule = serializersModule
@@ -213,12 +246,12 @@ abstract class TestPolymorphicBase<T>(
     value,
     serializer,
     serializersModule,
-    XML.v1.recommended(serializersModule) {
+    XML.v1(serializersModule, { ->
         policy {
             typeDiscriminatorName = null
         }
         xmlDeclMode = XmlDeclMode.None
-    },
+    }),
     baseJsonFormat
 ) {
 
@@ -249,13 +282,13 @@ abstract class TestPolymorphicBase<T>(
 
     @Test
     open fun xsi_serialization_should_work() {
-        val xml = XML.v1.recommended(serializersModule = serializersModule) {
+        val xml = XML.v1(serializersModule = serializersModule, configure = { ->
             policy {
                 autoPolymorphic = false
                 typeDiscriminatorName = xsiType
             }
             xmlDeclMode = XmlDeclMode.None
-        }
+        })
         val serialized = xml.encodeToString(serializer, value)
             .normalizeXml()
         assertXmlEquals(expectedXSIPolymorphicXML, serialized)
@@ -263,13 +296,13 @@ abstract class TestPolymorphicBase<T>(
 
     @Test
     open fun xsi_deserialization_should_work() {
-        val actualValue = XML.v1.recommended(serializersModule = serializersModule) {
+        val actualValue = XML.v1(serializersModule = serializersModule, configure = { ->
             policy {
                 autoPolymorphic = false
                 typeDiscriminatorName = xsiType
             }
             xmlDeclMode = XmlDeclMode.None
-        }.decodeFromString(serializer, expectedXSIPolymorphicXML)
+        }).decodeFromString(serializer, expectedXSIPolymorphicXML)
 
         assertEquals(value, actualValue)
     }
@@ -277,26 +310,26 @@ abstract class TestPolymorphicBase<T>(
     @Test
     open fun attribute_discriminator_deserialization_should_work() {
         val modifiedXml = expectedXSIPolymorphicXML.replace(XMLConstants.XSI_NS_URI, "urn:notquitexsi")
-        val actualValue = XML.v1.recommended(serializersModule = serializersModule) {
+        val actualValue = XML.v1(serializersModule = serializersModule, configure = { ->
             policy {
                 autoPolymorphic = false
                 typeDiscriminatorName = xsiType.copy(namespaceURI = "urn:notquitexsi")
             }
             xmlDeclMode = XmlDeclMode.None
-        }.decodeFromString(serializer, modifiedXml)
+        }).decodeFromString(serializer, modifiedXml)
 
         assertEquals(value, actualValue)
     }
 
     @Test
     open fun xsi_deserialization_should_work_implicitly() {
-        val actualValue = XML.v1.recommended(serializersModule = serializersModule) {
+        val actualValue = XML.v1(serializersModule = serializersModule, configure = { ->
             xmlDeclMode = XmlDeclMode.None
             policy {
                 autoPolymorphic = false
                 typeDiscriminatorName = xsiType
             }
-        }.decodeFromString(serializer, expectedXSIPolymorphicXML)
+        }).decodeFromString(serializer, expectedXSIPolymorphicXML)
 
         assertEquals(value, actualValue)
     }
@@ -309,5 +342,13 @@ abstract class TestPolymorphicBase<T>(
 
 
 inline fun XML.XmlCompanion<XmlConfig.DefaultBuilder>.pedantic(serializersModule: SerializersModule = EmptySerializersModule(), configure: XmlConfig.DefaultBuilder.() -> Unit = {}) =
-    recommended(serializersModule) { policy { pedantic = true }; configure() }
+    invoke(serializersModule, { -> policy { pedantic = true }; configure() })
 
+expect fun PlatformDOMImplementation.parse(input: String): Document
+
+internal fun parseWithDomWriter(input: String): Document {
+    val dw = DomWriter()
+    val r = xmlStreaming.newReader(input)
+    while (r.hasNext()) { val _ = r.next(); r.writeCurrent(dw) }
+    return dw.target
+}

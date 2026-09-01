@@ -22,12 +22,12 @@
 @file:Suppress("PropertyName")
 
 import net.devrieze.gradle.ext.addNativeTargets
-import net.devrieze.gradle.ext.applyDefaultXmlUtilHierarchyTemplate
 import net.devrieze.gradle.ext.doPublish
 import net.devrieze.gradle.ext.isKlibValidationEnabled
 import org.jetbrains.kotlin.gradle.dsl.HasConfigurableKotlinCompilerOptions
 import org.jetbrains.kotlin.gradle.dsl.JsMainFunctionExecutionMode
 import org.jetbrains.kotlin.gradle.dsl.JsModuleKind
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
 
@@ -39,7 +39,6 @@ plugins {
     signing
     alias(libs.plugins.dokka)
     idea
-    alias(libs.plugins.binaryValidator)
 }
 
 base {
@@ -47,8 +46,29 @@ base {
 }
 
 kotlin {
-    applyDefaultXmlUtilHierarchyTemplate()
     explicitApi()
+
+    jvmToolchain(17)
+
+    @OptIn(ExperimentalAbiValidation::class)
+    abiValidation {
+        if (! isKlibValidationEnabled()) {
+            checkTaskProvider.configure {
+                this.
+                enabled = false
+            }
+        }
+
+        filters {
+            exclude {
+                annotatedWith.add("nl.adaptivity.xmlutil.XmlUtilInternal")
+                annotatedWith.add("nl.adaptivity.xmlutil.serialization.WillBePrivate")
+                byNames.apply {
+                    add("nl.adaptivity.xmlutil.serialization.impl.**")
+                }
+            }
+        }
+    }
 
     jvm {
 
@@ -87,6 +107,7 @@ kotlin {
             testRuns.all {
                 executionTask.configure {
                     useJUnitPlatform()
+
                 }
             }
         }
@@ -101,7 +122,7 @@ kotlin {
 
     sourceSets {
 
-        val commonMain by getting {
+        commonMain {
             dependencies {
                 api(projects.core)
 
@@ -109,7 +130,7 @@ kotlin {
             }
         }
 
-        val commonTest by getting {
+        commonTest {
             dependencies {
                 implementation(projects.serialutil)
                 implementation(projects.testutil)
@@ -121,50 +142,36 @@ kotlin {
         }
 
 
-        val jvmTest by getting {
+        jvmTest {
             dependencies {
                 implementation(libs.kotlin.test.junit5)
+                implementation(libs.junit.params)
                 implementation(projects.coreJdk)
             }
         }
 
-        val jvmMain by getting {
+        jvmMain {
             dependencies {
                 runtimeOnly(projects.core)
             }
         }
-        val commonJvmMain by getting {}
 
-        val jsMain by getting {
+        jsMain {
             dependencies {
                 api(projects.core)
             }
         }
 
-        val jsTest by getting {
-            languageSettings.enableLanguageFeature("InlineClasses")
-
+        jsTest {
             dependencies {
                 implementation(kotlin("test-js"))
             }
         }
 
-        all {
-            if (this.name == "nativeMain") {
-                dependencies {
-                    api(projects.core)
-                    implementation(libs.kotlinx.atomicfu)
-                }
-            }
-            if (System.getProperty("idea.active") == "true" && name == "nativeTest") { // Hackery to get at the native source sets that shouldn't be needed
-                languageSettings.enableLanguageFeature("InlineClasses")
-                dependencies {
-                    implementation(kotlin("test-common"))
-                    implementation(kotlin("test-annotations-common"))
-                }
-            }
-            languageSettings.apply {
-                optIn("nl.adaptivity.xmlutil.XmlUtilInternal")
+        matching { it.name == "nativeMain" }.configureEach {
+            dependencies {
+                api(projects.core)
+                implementation(libs.kotlinx.atomicfu)
             }
         }
     }
@@ -173,6 +180,7 @@ kotlin {
 
 config {
     createAndroidCompatComponent = true
+    applyLayout = true
 }
 
 addNativeTargets()
@@ -181,22 +189,6 @@ dependencies {
     attributesSchema {
         attribute(KotlinPlatformType.attribute)
     }
-}
-
-apiValidation {
-    @Suppress("OPT_IN_USAGE")
-    klib {
-        enabled = isKlibValidationEnabled()
-        strictValidation = false
-    }
-    nonPublicMarkers.apply {
-        add("nl.adaptivity.xmlutil.serialization.WillBePrivate")
-        add("nl.adaptivity.xmlutil.XmlUtilInternal")
-    }
-    ignoredPackages.apply {
-        add("nl.adaptivity.xmlutil.serialization.impl")
-    }
-
 }
 
 doPublish()
@@ -211,8 +203,4 @@ tasks.withType<Test> {
     reports {
         junitXml.required.set(true)
     }
-}
-
-idea {
-    this.module.name = "xmlutil-serialization"
 }

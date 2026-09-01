@@ -21,32 +21,30 @@
 package net.devrieze.gradle.ext
 
 import io.github.xmlutil.plugin.isSnapshot
+import org.gradle.api.DefaultTask
 import org.gradle.api.Project
 import org.gradle.api.Task
+import org.gradle.api.attributes.Category
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.publish.PublishingExtension
 import org.gradle.api.publish.maven.MavenPublication
-import org.gradle.api.publish.maven.tasks.AbstractPublishToMaven
 import org.gradle.api.publish.maven.tasks.PublishToMavenRepository
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.bundling.Jar
-import org.gradle.api.tasks.bundling.Zip
-import org.gradle.internal.extensions.core.extra
 import org.gradle.kotlin.dsl.*
 import org.gradle.plugins.signing.SigningExtension
 
-@Suppress("LocalVariableName")
 fun Project.doPublish(
     pubName: String = project.name,
-    pubDescription: String = "Component of the XMLUtil library"
+    pubDescription: String = "Component of the XMLUtil library",
+    generateJavadoc: Boolean = true,
 ) {
-
-    val javadocJarTask = tasks.register<Jar>("javadocJar") {
-        archiveClassifier.set("javadoc")
-        from(rootProject.file("README.md"))
-//        from(tasks.named("dokkaGeneratePublicationHtml"))
-    }
+    configureSigningOfPublications()
 
     configure<PublishingExtension> {
-        this.repositories {
+        repositories {
             if (isSnapshot) {
                 maven {
                     name = "mavenSnapshot"
@@ -56,48 +54,37 @@ fun Project.doPublish(
                         password = project.findProperty("ossrh.password") as String?
                     }
                 }
+                maven {
+                    name = "testMavenSnapshot"
+
+                    @Suppress("UnstableApiUsage")
+                    url = isolated.rootProject.projectDirectory.dir("build/testMavenSnapshot").asFile.toURI()
+                }
             }
             maven {
                 name = "projectLocal"
 
-                setUrl(rootProject.layout.buildDirectory.dir("project-local-repository").map { it.asFile.toURI() })
+                @Suppress("UnstableApiUsage")
+                url = isolated.rootProject.projectDirectory.dir("build/project-local-repository").asFile.toURI()
             }
 
         }
 
+        publications.withType<MavenPublication>().configureEach {
 
-        configure<SigningExtension> {
-            val priv_key: String? = System.getenv("GPG_PRIV_KEY")
-            val passphrase: String? = System.getenv("GPG_PASSPHRASE")
-            when {
-                priv_key != null && passphrase != null -> useInMemoryPgpKeys(priv_key, passphrase)
+            val publication = this
 
-                System.getenv("JITPACK").equals("true", true) -> {
-                    if (!rootProject.extra.has("NO_SIGNING")) {
-                        logger.warn("No private key information found in environment. Running on Jitpack, skipping signing")
+            if (generateJavadoc && name != "kotlinMultiplatform" && !isSnapshot) {
 
-                        setRequired(false)
-                        rootProject.extra.set("NO_SIGNING", true)
-                    }
+                val javadocJarTaskName = "${name}JavadocJar"
+                val javadocJarTask = project.tasks.register<Jar>(javadocJarTaskName) {
+                    archiveBaseName = publication.name
+                    archiveClassifier = "javadoc"
+                    from(project.rootProject.file("README.md"))
                 }
 
-                else -> {
-                    logger.warn("No private key information found in environment. Falling back to gnupg.")
-                    useGpgCmd()
-                }
+                artifact(javadocJarTask)
             }
-        }
-
-        publications.withType<MavenPublication> {
-
-//            artifactId = project.name
-
-            // the attributes aren't needed for pom (it selects the right module)
-//            suppressPomMetadataWarningsFor("jvmApiElements-published")
-
-            artifact(javadocJarTask)
-
-
 
             pom {
                 name = pubName
@@ -123,70 +110,128 @@ fun Project.doPublish(
                     url.set("https://github.com/pdvrieze/xmlutil")
                 }
             }
-
         }
+
     }
 
+    recordPublicationCoordinates()
 
-    configure<SigningExtension> {
-        when {
-            rootProject.extra.has("NO_SIGNING") && rootProject.extra["NO_SIGNING"] == true ->
-                setRequired(false)
+    if (isSnapshot) {
+        tasks.withType<PublishToMavenRepository>().configureEach {
+            doFirst {
+                val pubArtifacts = publication.artifacts
 
-            else ->
-                setRequired { gradle.taskGraph.run { hasTask("publish") || hasTask("publishNative") } }
-
-        }
-
-        val publishing = extensions.findByType<PublishingExtension>()
-        val signTasks = sign(publishing!!.publications)
-
-        tasks.withType<AbstractPublishToMaven> {
-            val specificSignTaskName = "sign${name.substringBefore("Publication").substringAfter("publish")}Publication"
-            tasks.findByName(specificSignTaskName)?.let {
-                logger.debug("Add dependency for ${name} on ${specificSignTaskName}")
-                dependsOn(it)
+                pubArtifacts.removeIf { artifact ->
+                    artifact.classifier == "sources"
+                }
             }
-            dependsOn(signTasks)
         }
-
     }
 
-    val publishNativeTask = tasks.create<Task>("publishNative") {
+    val publishNativeTask = tasks.register<Task>("publishNative") {
         group = "Publishing"
         description = "Task to publish all native artefacts only"
-    }
 
-
-
-    tasks.withType<PublishToMavenRepository> {
-        if (isEnabled) {
-
-            if (repository?.name == "projectLocal") {
-                val repositoryDir = rootProject.layout.buildDirectory.dir("project-local-repository")
-                if (repositoryDir.isPresent) {
-                    repositoryDir.get().asFile.deleteRecursively()
-                }
-
-                val publishTask = this
-
-                rootProject.tasks.named<Zip>("collateModuleRepositories") {
-                    dependsOn(publishTask)
-                    from(repositoryDir)
-                }
-            }
-
-            val doPublish = arrayOf(
+        val dependencies = tasks.matching {
+            it is PublishToMavenRepository && arrayOf(
                 "publishKotlinMultiplatform",
                 "publishJs",
                 "publishJvm",
                 "publishAndroid"
             ).none { "${it}Publication" in name }
-            if (doPublish) {
-                publishNativeTask.dependsOn(this)
-            }
         }
+        dependsOn(dependencies)
+    }
+
+    val cleanLocalRepoTask = ":cleanLocalRepo"
+
+    tasks.withType<PublishToMavenRepository>().matching { it.repository?.name == "projectLocal" }.configureEach {
+        if (isEnabled) dependsOn(cleanLocalRepoTask)
     }
 
 
+}
+
+private fun Project.recordPublicationCoordinates() {
+    val projectName = name
+
+    if (projectName == "xmlutil-bom") return
+
+    configure<PublishingExtension> {
+        @Suppress("UnstableApiUsage")
+        val coordinateFolder = isolated.projectDirectory.dir("${isolated.buildTreePath}/coordinates")
+
+        val exportCoordinatesTask = tasks.register<WriteCoordinatesTask>("exportArtifactCoordinates") {
+            outputFile.set(coordinateFolder.file("${projectName}.txt").asFile)
+
+        }
+
+        configurations.create("coordinatesExport") {
+            isCanBeConsumed = true
+            isCanBeResolved = false
+            attributes {
+                attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category::class.java, "BOM-coordinate"))
+            }
+            outgoing.artifact(exportCoordinatesTask)
+        }
+
+        tasks.matching { name.startsWith("generatePomFileFor") && name.endsWith("Publication") }.configureEach() {
+            dependsOn(exportCoordinatesTask)
+        }
+    }
+}
+
+abstract class WriteCoordinatesTask: DefaultTask() {
+    @get:OutputFile
+    abstract val outputFile: RegularFileProperty
+
+    @get:Internal
+    val publications = project.extensions.getByType<PublishingExtension>().publications
+
+    @TaskAction
+    fun run() {
+        val file = outputFile.get().asFile
+        file.parentFile.mkdirs()
+        file.bufferedWriter().use { writer ->
+            publications.filterIsInstance<MavenPublication>().forEach { pub ->
+                writer.write("${pub.groupId}:${pub.artifactId}:${pub.version}\n")
+            }
+        }
+    }
+}
+
+
+fun Project.configureSigningOfPublications() {
+    configure<SigningExtension> {
+        val priv_key: String? = System.getenv("GPG_PRIV_KEY")
+        val passphrase: String? = System.getenv("GPG_PASSPHRASE")
+        var noSigning = false
+        when {
+            priv_key != null && passphrase != null -> useInMemoryPgpKeys(priv_key, passphrase)
+
+            System.getenv("JITPACK").equals("true", true) -> {
+                logger.info("No private key information found in environment. Running on Jitpack, skipping signing")
+
+                setRequired(false)
+                noSigning = true
+            }
+
+            else -> {
+                logger.warn("No private key information found in environment. Falling back to gnupg.")
+                useGpgCmd()
+            }
+        }
+
+        extensions.findByType<PublishingExtension>()?.run {
+            sign(publications)
+        }
+
+        when {
+            noSigning -> setRequired(false)
+
+            else ->
+                setRequired { gradle.taskGraph.run { hasTask("publish") || hasTask("publishNative") } }
+
+        }
+    }
 }

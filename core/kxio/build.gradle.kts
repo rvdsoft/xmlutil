@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025.
+ * Copyright (c) 2024-2026.
  *
  * This file is part of xmlutil.
  *
@@ -18,18 +18,18 @@
  * permissions and limitations under the License.
  */
 
+@file:Suppress("OPT_IN_USAGE")
+
 import net.devrieze.gradle.ext.addNativeTargets
-import net.devrieze.gradle.ext.applyDefaultXmlUtilHierarchyTemplate
 import net.devrieze.gradle.ext.doPublish
-import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
-import org.jetbrains.kotlin.gradle.dsl.HasConfigurableKotlinCompilerOptions
+import net.devrieze.gradle.ext.isKlibValidationEnabled
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 
 plugins {
     alias(libs.plugins.dokka)
     id("projectPlugin")
     kotlin("multiplatform")
     `maven-publish`
-    alias(libs.plugins.binaryValidator)
     signing
     idea
 }
@@ -40,14 +40,36 @@ base {
 
 config {
     dokkaModuleName = "core-io"
+//    optIns = emptyList()
 }
 
 
 val autoModuleName = "net.devrieze.xmlutil.core.kxio"
 
 kotlin {
+    applyDefaultHierarchyTemplate {
+        group("web") {
+            withWasmWasi()
+        }
+    }
     explicitApi()
-    applyDefaultXmlUtilHierarchyTemplate()
+
+    @OptIn(ExperimentalAbiValidation::class)
+    abiValidation {
+
+        filters {
+            exclude {
+                annotatedWith.add("nl.adaptivity.xmlutil.XmlUtilInternal")
+            }
+        }
+
+        if (!isKlibValidationEnabled()) {
+            checkTaskProvider.configure {
+                enabled = false
+            }
+        }
+
+    }
 
     jvm()
     js {
@@ -59,24 +81,15 @@ kotlin {
         }
     }
 
-    targets.all {
-        @OptIn(ExperimentalKotlinGradlePluginApi::class)
-        if (this is HasConfigurableKotlinCompilerOptions<*>) {
-            compilerOptions {
-                freeCompilerArgs.add("-Xexpect-actual-classes")
-            }
-        }
-    }
-
     sourceSets {
-        val commonMain by getting {
+        commonMain {
             dependencies {
                 api(projects.core)
                 api(libs.kotlinx.io.core)
             }
         }
 
-        val commonTest by getting {
+        commonTest {
             dependencies {
                 implementation(kotlin("test"))
                 implementation(kotlin("test-annotations-common"))

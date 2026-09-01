@@ -18,17 +18,15 @@
  * permissions and limitations under the License.
  */
 
-import kotlinx.validation.ExperimentalBCVApi
 import net.devrieze.gradle.ext.addNativeTargets
-import net.devrieze.gradle.ext.applyDefaultXmlUtilHierarchyTemplate
 import net.devrieze.gradle.ext.doPublish
 import net.devrieze.gradle.ext.isKlibValidationEnabled
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
-import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.HasConfigurableKotlinCompilerOptions
 import org.jetbrains.kotlin.gradle.dsl.JsMainFunctionExecutionMode
 import org.jetbrains.kotlin.gradle.dsl.JsModuleKind
 import org.jetbrains.kotlin.gradle.dsl.JsSourceMapEmbedMode
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 
 plugins {
     alias(libs.plugins.dokka)
@@ -38,31 +36,49 @@ plugins {
     `maven-publish`
     signing
     idea
-    alias(libs.plugins.binaryValidator)
+    alias(libs.plugins.mockery)
 }
 
 config {
-    applyLayout = false
+    applyLayout = true
+    allWarningsAsErrors = false
 }
 
 kotlin {
-    applyDefaultXmlUtilHierarchyTemplate()
     explicitApi()
+
+    jvmToolchain(17)
+
+    @OptIn(ExperimentalAbiValidation::class)
+    abiValidation {
+        keepLocallyUnsupportedTargets = false
+
+        filters {
+            exclude {
+                annotatedWith.add("nl.adaptivity.xmlutil.XmlUtilInternal")
+                byNames.apply {
+                    add("nl.adaptivity.xmlutil.core.internal.**")
+                    add("nl.adaptivity.xmlutil.core.impl.**")
+                    add("nl.adaptivity.xmlutil.util.impl.**")
+                }
+            }
+        }
+        if (! isKlibValidationEnabled()) {
+            checkTaskProvider.configure {
+                enabled = false
+            }
+        }
+    }
 
     val testTask = tasks.register("test") {
         group = "verification"
     }
-    val cleanTestTask = tasks.register("cleanTest") {
-        group = "verification"
-    }
 
-    jvm("jvmCommon") {
+
+    jvm {
         compilations.all {
             val targetTestTask = tasks.named<Test>("${target.name}Test")
             testTask.configure { dependsOn(targetTestTask) }
-            cleanTestTask.configure {
-                dependsOn(tasks.named("clean${target.name[0].uppercaseChar()}${target.name.substring(1)}Test"))
-            }
         }
         tasks.withType<Jar>().named(artifactsTaskName) {
             from(project.file("src/r8-workaround.pro")) {
@@ -76,6 +92,7 @@ kotlin {
         }
 
     }
+
     js {
         @OptIn(ExperimentalKotlinGradlePluginApi::class)
         compilerOptions {
@@ -90,19 +107,9 @@ kotlin {
         nodejs()
     }
 
-    @OptIn(ExperimentalWasmDsl::class)
-    wasmWasi {
-        nodejs()
-    }
-
-    @OptIn(ExperimentalWasmDsl::class)
-    wasmJs {
-        nodejs()
-        browser {
-            testTask {
-                isEnabled = !System.getenv().containsKey("GITHUB_ACTION")
-            }
-        }
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+        optIn.add("kotlin.js.ExperimentalJsNoRuntime")
     }
 
     targets.all {
@@ -115,13 +122,13 @@ kotlin {
     }
 
     sourceSets {
-        val commonMain by getting {
+        commonMain {
             dependencies {
                 implementation(libs.serialization.core)
             }
         }
 
-        val commonTest by getting {
+        commonTest {
             dependencies {
                 implementation(kotlin("test"))
                 implementation(kotlin("test-annotations-common"))
@@ -130,18 +137,18 @@ kotlin {
             }
         }
 
-        val jvmCommonTest by getting {
+        jvmTest {
             dependencies {
                 implementation(kotlin("test-junit5"))
-                implementation(libs.junit5.api)
+                implementation(libs.junit.api)
                 implementation(projects.coreJdk)
 
-                runtimeOnly(libs.junit5.engine)
+                runtimeOnly(libs.junit.engine)
                 runtimeOnly(libs.woodstox)
             }
         }
 
-        val jsTest by getting {
+        jsTest {
             dependencies {
                 implementation(kotlin("test-js"))
             }
@@ -150,20 +157,15 @@ kotlin {
 
 }
 
-addNativeTargets()
+val cleanTestTask = tasks.register("cleanTest") {
+    description = "Cleans all test data (for all platforms)"
+    group = "verification"
 
-apiValidation {
-    @OptIn(ExperimentalBCVApi::class)
-    klib {
-        enabled = isKlibValidationEnabled()
-        strictValidation = false
-    }
-    nonPublicMarkers.add("nl.adaptivity.xmlutil.XmlUtilInternal")
-    ignoredPackages.apply {
-        add("nl.adaptivity.xmlutil.core.internal")
-        add("nl.adaptivity.xmlutil.core.impl")
-        add("nl.adaptivity.xmlutil.util.impl")
-    }
+    dependsOn(tasks.withType<Delete>().matching {
+        it.name.startsWith("clean") && it.name.endsWith("Test")
+    })
 }
+
+addNativeTargets()
 
 doPublish("core")

@@ -30,7 +30,6 @@ import nl.adaptivity.xmlutil.XmlException
 import nl.adaptivity.xmlutil.XmlWriter
 import nl.adaptivity.xmlutil.core.impl.NamespaceHolder
 import nl.adaptivity.xmlutil.core.impl.multiplatform.Writer
-import nl.adaptivity.xmlutil.core.impl.multiplatform.assert
 import nl.adaptivity.xmlutil.core.impl.validateIndentString
 import nl.adaptivity.xmlutil.core.internal.appendCodepoint
 
@@ -513,7 +512,8 @@ public class KtXmlWriter(
 
                         in 0xD800..0xDFFF -> error("Surrogate block codepoints are not valid characters")
 
-                        0xFFFE, 0xFFEF -> error("Byte order markers are not allowed in xml content")
+                        0xFFFE -> error("Unicode codepoint 0xFFFE is reserved for reverse of the byte order marker, and is not allowed in xml content")
+                        0xFFFF -> error("The sentinal value is allowed in xml content")
 
                         else if xmlVersion == XmlVersion.XML11 -> {} // no issue
 
@@ -546,7 +546,7 @@ public class KtXmlWriter(
 
         for (c in text) {
             when (c) {
-                ' ', '\t', '\r', '\n' -> {}
+                ' ', '\t', '\r', '\n', '\u0085', '\u2028' -> {}
                 else -> throw IllegalArgumentException("\"$text\" is not ignorable whitespace")
             }
         }
@@ -629,15 +629,17 @@ public class KtXmlWriter(
     }
 
     override fun endDocument() {
-        assert(depth == 0)
-
         if (state != WriteState.InTagContent) {
             throw XmlException("Attempting to end document when in invalid state: $state")
         }
 
         // TODO make this repairing behaviour optional
         while (depth > 0) {
-            endTag(namespaceAt(depth - 1), prefixAt(depth - 1), localNameAt(depth - 1))
+            endTag(
+                namespace = namespaceAt(depth - 1),
+                localName = localNameAt(depth - 1),
+                prefix = prefixAt(depth - 1)
+            )
         }
         flush()
     }
@@ -673,7 +675,7 @@ public class KtXmlWriter(
             it[0xb] = true
             it[0xc] = true
             it[0xd] = true // needs escaping in all cases
-            for (i in 0xe until 0x1f) it[i] = true
+            for (i in 0xe .. 0x1f) it[i] = true
             it['<'.code] = true
             it['>'.code] = true
             it['&'.code] = true

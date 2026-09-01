@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025.
+ * Copyright (c) 2025-2026.
  *
  * This file is part of xmlutil.
  *
@@ -18,60 +18,89 @@
  * permissions and limitations under the License.
  */
 
-import org.gradle.api.publish.maven.internal.publication.DefaultMavenPublication
+@file:Suppress("UnstableApiUsage")
+
+import net.devrieze.gradle.ext.doPublish
 
 plugins {
+    id("projectPlugin")
     `java-platform`
     `maven-publish`
+    signing
 }
+
+private val coordinatesDir = isolated.rootProject.projectDirectory.dir("build/coordinates").asFile
+
+val coordinates = configurations.create("coordinates") {
+    isCanBeConsumed = false
+    isCanBeResolved = true
+    attributes {
+        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category::class.java, "BOM-coordinate"))
+    }
+}
+
 
 dependencies {
     constraints {
-        rootProject.subprojects.asSequence()
-            .filter { it.name != project.name }
-            .filter { it.plugins.hasPlugin("maven-publish") }
-            .forEach { subproject: Project ->
-                evaluationDependsOn(subproject.path)
-                for(p in subproject.publishing.publications) {
-                    p as MavenPublication
-                    if (!(p.artifactId.endsWith("-metadata") ||
-                            p.artifactId.endsWith("-kotlinMultiplatform") ||
-                            p.artifacts.any { it.extension == "klib" }
-                            )) {
-                        this@constraints.api(
-                            mapOf(
-                                "group" to p.groupId,
-                                "name" to p.artifactId,
-                                "version" to p.version
-                            )
-                        )
-                    }
+        if (coordinatesDir.exists()) {
+            coordinatesDir.listFiles()?.forEach { file ->
+                file.readLines().forEach { coordinate ->
+                    if (coordinate.isNotBlank()) api(coordinate)
                 }
             }
+        }
     }
+
+    coordinates(projects.core)
+    coordinates(projects.coreAndroid)
+    coordinates(projects.coreJdk)
+    coordinates(projects.coreIo)
+    coordinates(projects.serialization)
+    coordinates(projects.serializationIo)
+    coordinates(projects.serialutil)
+    coordinates(projects.xmlserializable)
 }
 
 publishing {
     publications {
-        val mavenBom by creating(MavenPublication::class) {
+        register<MavenPublication>("mavenBom") {
             from(components["javaPlatform"])
-        }
 
-        for(pub in this) {
-            pub as DefaultMavenPublication
+            pom {
+                name = "xmlutil-Bill of Materials"
+                description = "Centralised dependencies for xmlutil"
 
-            pub.unsetModuleDescriptorGenerator()
+                withXml {
+                    // Resolve the configuration safely during execution
+                    val resolvedFiles = coordinates.incoming.files
 
-            tasks.configureEach {
-                if (name == "generateMetadataFileFor${pub.name.replaceFirstChar { it.titlecase() }}") {
-                    onlyIf { false }
+                    val dependenciesNode = asNode().appendNode("dependencyManagement").appendNode("dependencies")
+
+                    // Read every coordinate file gathered from the subprojects
+                    resolvedFiles.forEach { file ->
+                        file.readLines().forEach { coordinate ->
+                            if (coordinate.isNotBlank()) {
+                                // Inject the constraints dynamically into the generated XML file
+                                val parts = coordinate.split(":")
+                                val depNode = dependenciesNode.appendNode("dependency")
+                                depNode.appendNode("groupId", parts[0])
+                                depNode.appendNode("artifactId", parts[1])
+                                depNode.appendNode("version", parts[2])
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-fun DefaultMavenPublication.unsetModuleDescriptorGenerator() {
-    @Suppress("NULL_FOR_NONNULL_TYPE")
-    this.setModuleDescriptorGenerator(null)
+doPublish(pubDescription = "Centralised dependencies for xmlutil", generateJavadoc = false)
+
+tasks.named("generatePomFileForMavenBomPublication") {
+    dependsOn(coordinates)
+}
+
+tasks.withType<GenerateModuleMetadata>().configureEach {
+    enabled = false
 }

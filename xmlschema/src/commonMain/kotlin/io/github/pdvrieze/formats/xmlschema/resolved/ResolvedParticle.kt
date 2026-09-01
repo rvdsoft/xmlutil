@@ -1,21 +1,21 @@
 /*
- * Copyright (c) 2023.
+ * Copyright (c) 2023-2026.
  *
  * This file is part of xmlutil.
  *
- * This file is licenced to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You should have received a copy of the license with the source distribution.
- * Alternatively, you may obtain a copy of the License at
+ * This file is licenced to you under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance
+ * with the License.  You should have  received a copy of the license
+ * with the source distribution. Alternatively, you may obtain a copy
+ * of the License at
  *
  *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ * implied.  See the License for the specific language governing
+ * permissions and limitations under the License.
  */
 
 package io.github.pdvrieze.formats.xmlschema.resolved
@@ -24,6 +24,9 @@ import io.github.pdvrieze.formats.xmlschema.datatypes.primitiveInstances.VNonNeg
 import io.github.pdvrieze.formats.xmlschema.datatypes.primitiveInstances.VUnsignedLong
 import io.github.pdvrieze.formats.xmlschema.datatypes.serialization.*
 import io.github.pdvrieze.formats.xmlschema.resolved.checking.CheckHelper
+import io.github.pdvrieze.formats.xmlschema.resolved.flattened.FlattenedEmptyGroup
+import io.github.pdvrieze.formats.xmlschema.resolved.flattened.FlattenedParticle
+import io.github.pdvrieze.formats.xmlschema.resolved.flattened.SiblingContextProvider
 import io.github.pdvrieze.formats.xmlschema.types.AllNNIRange
 import io.github.pdvrieze.formats.xmlschema.types.VAllNNI
 import nl.adaptivity.xmlutil.QName
@@ -71,17 +74,18 @@ interface ResolvedParticle<out T : ResolvedTerm> : ResolvedAnnotated {
         visitTerm(ElementNameCollector(collector))
     }
 
-    fun isSiblingName(name: QName) : Boolean {
+    fun isSiblingName(name: QName): Boolean {
         return visitTerm(IsSiblingNameVisitor(name))
     }
 
 
-    fun checkParticle(checkHelper: CheckHelper) {
+    context(checkHelper: CheckHelper)
+    fun checkParticle() {
         check(mdlMinOccurs <= mdlMaxOccurs) { "MinOccurs should be <= than maxOccurs" }
         if (mdlTerm is IResolvedAll) {
             check(mdlMaxOccurs == VAllNNI.ONE) { "all: maxOccurs must be 1" }
         }
-        mdlTerm.checkTerm(checkHelper)
+        mdlTerm.checkTerm()
     }
 
     fun mdlIsEmptiable(): Boolean {
@@ -98,14 +102,16 @@ interface ResolvedParticle<out T : ResolvedTerm> : ResolvedAnnotated {
 
     fun <R> visitTerm(visitor: ResolvedTerm.Visitor<R>): R = mdlTerm.visit(visitor)
 
-    fun flatten(checkHelper: CheckHelper): FlattenedParticle {
-        return flatten(::isSiblingName, checkHelper)
+    context(checkHelper: CheckHelper)
+    fun flatten(): FlattenedParticle {
+        return flatten(::isSiblingName)
     }
 
-    fun flatten(isSiblingName: (QName) -> Boolean, checkHelper: CheckHelper): FlattenedParticle {
+    context(checkHelper: CheckHelper)
+    fun flatten(siblingContext: SiblingContextProvider): FlattenedParticle {
         return when (mdlMaxOccurs) {
-            VAllNNI.ZERO -> FlattenedGroup.EMPTY
-            else -> mdlTerm.flatten(mdlMinOccurs.rangeTo(mdlMaxOccurs), isSiblingName, checkHelper)
+            VAllNNI.ZERO -> FlattenedEmptyGroup
+            else -> mdlTerm.flatten(mdlMinOccurs.rangeTo(mdlMaxOccurs), siblingContext)
         }
     }
 
@@ -123,7 +129,6 @@ interface ResolvedParticle<out T : ResolvedTerm> : ResolvedAnnotated {
             is XSGroupRef -> ResolvedGroupRef(rawPart, schema)
             is XSAny -> ResolvedAny(rawPart, schema)
             is XSLocalElement -> IResolvedElementUse(parent, elemPart.cast(), schema)
-            else -> error("Compiler limitation")
         }
 
         internal operator fun invoke(
@@ -143,7 +148,7 @@ class ElementNameCollector(private val collector: MutableList<QName>) : Resolved
         collector.add(element.mdlQName)
     }
 
-    override fun visitAny(any: ResolvedAny) = Unit
+    override fun visitAny(any: ResolvedAny): Unit = Unit
 }
 
 class IsSiblingNameVisitor(private val name: QName) : ResolvedTerm.Visitor<Boolean>() {

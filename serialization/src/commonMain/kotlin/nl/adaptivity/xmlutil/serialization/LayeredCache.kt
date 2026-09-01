@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025.
+ * Copyright (c) 2025-2026.
  *
  * This file is part of xmlutil.
  *
@@ -31,9 +31,11 @@ import nl.adaptivity.xmlutil.serialization.structure.*
 
 public class LayeredCache private constructor(
     private var baseCache: DelegatableFormatCache
-): FormatCache() {
+): FormatCache {
 
     public constructor() : this(DefaultFormatCache())
+
+    public constructor(cacheSize: Int) : this(DefaultFormatCache(cacheSize))
 
     private val lock = CompatLock()
 
@@ -112,7 +114,7 @@ public class LayeredCache private constructor(
 
     private abstract class AbstractLayer(
         val extCache: DefaultFormatCache
-    ): FormatCache() {
+    ): FormatCache {
         abstract val base: DelegatableFormatCache
         abstract override fun copy(): AbstractLayer
 

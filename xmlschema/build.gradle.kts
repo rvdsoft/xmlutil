@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025.
+ * Copyright (c) 2024-2026.
  *
  * This file is part of xmlutil.
  *
@@ -21,7 +21,6 @@
 @file:Suppress("PropertyName")
 
 import net.devrieze.gradle.ext.addNativeTargets
-import net.devrieze.gradle.ext.applyDefaultXmlUtilHierarchyTemplate
 import net.devrieze.gradle.ext.envJvm
 import org.gradle.api.attributes.java.TargetJvmEnvironment.TARGET_JVM_ENVIRONMENT_ATTRIBUTE
 import org.jetbrains.kotlin.gradle.dsl.JsMainFunctionExecutionMode
@@ -36,7 +35,12 @@ plugins {
     signing
     alias(libs.plugins.dokka)
     idea
-//    alias(libs.plugins.binaryValidator)
+}
+
+config {
+    dokkaModuleName = "xmlschema"
+    applyLayout = true
+    allWarningsAsErrors = false
 }
 
 base {
@@ -45,7 +49,9 @@ base {
 }
 
 kotlin {
-    applyDefaultXmlUtilHierarchyTemplate()
+
+    jvmToolchain(17)
+
     jvm {
         attributes {
             attribute(TARGET_JVM_ENVIRONMENT_ATTRIBUTE, envJvm)
@@ -76,7 +82,7 @@ kotlin {
     }
 
     sourceSets {
-        val commonMain by getting {
+        commonMain {
             dependencies {
                 implementation(project(":core"))
                 api(project(":serialization"))
@@ -84,7 +90,7 @@ kotlin {
                 implementation(libs.datetime)
             }
         }
-        val commonTest by getting {
+        commonTest {
             dependencies {
                 implementation(projects.schemaTests)
                 implementation(kotlin("test"))
@@ -94,13 +100,13 @@ kotlin {
             }
         }
 
-        val jvmTest by getting {
+        jvmTest {
             dependencies {
                 implementation(kotlin("test-junit5"))
-                implementation(libs.junit5.api)
+                implementation(libs.junit.api)
                 implementation(projects.coreJdk)
 
-                runtimeOnly(libs.junit5.engine)
+                runtimeOnly(libs.junit.engine)
                 runtimeOnly(libs.woodstox)
             }
         }
@@ -115,10 +121,6 @@ tasks.named<Test>("jvmTest") {
 addNativeTargets(includeWasm = false, includeWasi = false)
 
 //doPublish()
-
-config {
-    dokkaModuleName = "xmlschema"
-}
 
 idea {
     module {

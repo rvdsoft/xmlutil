@@ -49,19 +49,27 @@ package. The `JVM` and `Android` packages provide the native
 implementations and depend on (publishing) the `jvmCommon` package.
 #### multiplatform (will default to multiplatform implementation for JVM/Android)
 ```
-   implementation("io.github.pdvrieze.xmlutil:core:1.0.0-rc2")
+   implementation("io.github.pdvrieze.xmlutil:core:1.0.2")
 ```
 #### **Optional** JVM – uses the stax API _not available_ on Android
+Please note that this module is **not required or needed**. It adds support for
+integrating with the JVM's streaming API for XML (STAX).
 ```
-   implementation("io.github.pdvrieze.xmlutil:core-jdk:1.0.0-rc2")
+   implementation("io.github.pdvrieze.xmlutil:core-jdk:1.0.2")
 ```
-#### **Optional** Android – Uses the android streaming library
+#### **Not recommended** Android – Uses the android streaming library
+This adds support for parsing from the XMLPullParser API as provided on
+Android. Writing XML will never use the Android writer (as it does not
+work correctly). **Only use this module if you need the integration**. The
+cross platform implementation is derived from the Android implementation,
+but has further optimizations and supports more features (such as entity
+parsing).
 ```
-   implementation("io.github.pdvrieze.xmlutil:core-android:1.0.0-rc2")
+   implementation("io.github.pdvrieze.xmlutil:core-android:1.0.2")
 ```
 #### JS – Wraps DOM
 ```
-   implementation("io.github.pdvrieze.xmlutil:core-js:1.0.0-rc2")
+   implementation("io.github.pdvrieze.xmlutil:core-js:1.0.2")
 ```
 
 #### Native
@@ -72,7 +80,7 @@ that mirrors the Java API)
 ### Serialization
 #### multiplatform (this coordinate should be used by default)
 ```
-   implementation("io.github.pdvrieze.xmlutil:serialization:1.0.0-rc2")
+   implementation("io.github.pdvrieze.xmlutil:serialization:1.0.2")
 ```
 
 ## Serialization help
@@ -82,7 +90,7 @@ To serialize a very simple type you have the following:
 @Serializable
 data class HelloWorld(val user: String)
 
-println(XML1_0.encodeToString(HelloWorld("You!")))
+println(XML.v1.encodeToString(HelloWorld("You!")))
 ```
 
 To deserialize you would do:
@@ -90,12 +98,20 @@ To deserialize you would do:
 @Serializable
 data class HelloWorld(val user: String)
 
-XML1_0.decodeFromString(HelloWorld.serializer(), "<HelloWorld user='You!' />")
+XML.v1.decodeFromString(HelloWorld.serializer(), "<HelloWorld user='You!' />")
 ```
 
 Please look at the examples and the documentation for further features
 that can influence: the tag names/namespaces used, the actual structure
 used (how lists and polymorphic types are handled), etc.
+
+### Warning
+Please note that using duplicate `@SerialName` values for types is not
+supported by the underlying kotlinx.serialization library and will
+cause serialization issues due to cache key duplication. Instead of using
+`@SerialName` for the type, please use `@XmlSerialName` this will avoid
+duplicate type names, and in addition allow for more deterministic
+ways to determine the name used in serialization.
 
 ### Examples
 You should be able to find examples in the [Examples module](examples/README.md)
@@ -118,7 +134,7 @@ but not how serializable types are reflected in XML. The policy is designed to
 allow for programmatic determination of how serialization occurs. 
 
 The following options are available when using the XML format builder. For new
-code you should use the `XML1_0` entry point. This entry point is equivalent to
+code you should use the `XML.v1` entry point. This entry point is equivalent to
 the recommended configuration for version 0.92.0.
 
 There are four functions to create a new XML format. They provide different

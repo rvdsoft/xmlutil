@@ -510,7 +510,7 @@ private constructor(
          * Configure the format using the recommended configuration as of version 0.87.0. This configuration is stable.
          */
         @Suppress("FunctionName")
-        @Deprecated("Use the new 1_0 accessors instead, it is equivalent")
+        @Deprecated("Use the new 1_0 accessors instead, it is almost equivalent except a change in the default of xmlDeclMode")
         public fun recommended_0_91_0() {
             @Suppress("DEPRECATION")
             recommended_0_91_0 { }
@@ -522,7 +522,7 @@ private constructor(
          * required for XML 1.1 (otherwise it reverts to 1.0).
          */
         @Suppress("FunctionName")
-        @Deprecated("Use the new 1_0 accessors instead, it is equivalent")
+        @Deprecated("Use the new 1_0 accessors instead, it is almost equivalent except a change in the default of xmlDeclMode")
         public inline fun recommended_0_91_0(configurePolicy: BuilderCompat.() -> Unit) {
             setIndent(4)
             repairNamespaces = false
@@ -769,8 +769,8 @@ private constructor(
                     emptyList()
                 } else {
                     throw UnknownXmlFieldException(
-                        input.extLocationInfo,
                         "(${descriptor.serialDescriptor.serialName}) ${descriptor.tagName}/${name ?: "<CDATA>"} ($inputKind)",
+                        input.extLocationInfo,
                         candidates
                     )
                 }
@@ -792,8 +792,8 @@ private constructor(
                     emptyList()
                 } else {
                     throw UnknownXmlFieldException(
-                        input.extLocationInfo,
                         "(${descriptor.serialDescriptor.serialName}) ${descriptor.tagName}/${name ?: "<CDATA>"} ($inputKind)",
+                        input.extLocationInfo,
                         candidates
                     )
                 }
