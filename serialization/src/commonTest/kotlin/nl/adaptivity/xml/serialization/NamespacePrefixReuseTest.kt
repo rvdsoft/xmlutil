@@ -1,9 +1,11 @@
 package nl.adaptivity.xml.serialization
 
 import kotlinx.serialization.Serializable
+import nl.adaptivity.xmlutil.newGenericWriter
 import nl.adaptivity.xmlutil.serialization.XML
 import nl.adaptivity.xmlutil.serialization.XmlElement
 import nl.adaptivity.xmlutil.serialization.XmlSerialName
+import nl.adaptivity.xmlutil.xmlStreaming
 import kotlin.test.DefaultAsserter.assertTrue
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -25,6 +27,34 @@ class NamespacePrefixReuseTest {
         assertTrue(
             "Expected nested elements not to reuse the bound namespace prefix when disabled; actual XML: $legacy",
             "<posId>1111</posId>" in legacy,
+        )
+    }
+
+    @Test
+    fun nestedNamespacePrefixReuseIsConfigurableGenericRespectLegacy() {
+        val value = Request("1111")
+        val output = StringBuilder()
+
+        val xml = XML.v1 {
+            reuseNamespacePrefixes = false
+        }
+
+        val writer = xmlStreaming.newGenericWriter(
+            output = output,
+            isRepairNamespaces = false,
+        )
+
+        xml.encodeToWriter(
+            target = writer,
+            serializer = Request.serializer(),
+            value = value,
+        )
+
+        writer.close()
+
+        assertTrue(
+            "<posId>1111</posId>" in output.toString(),
+            output.toString(),
         )
     }
 

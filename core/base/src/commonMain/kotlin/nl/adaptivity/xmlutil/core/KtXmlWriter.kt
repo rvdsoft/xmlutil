@@ -400,15 +400,7 @@ public class KtXmlWriter(
 
         val appliedPrefix = when (namespace) {
             "" -> ""
-
-            else -> {
-                val reg = getPrefix(namespace)
-                when {
-                    reg != null -> reg
-                    prefix == null -> namespaceHolder.nextAutoPrefix()
-                    else -> prefix
-                }
-            }
+            else -> prefix ?: getPrefix(namespace) ?: namespaceHolder.nextAutoPrefix()
         }
 
         setElementStack(depth, namespace ?: "", appliedPrefix, localName)
@@ -422,7 +414,10 @@ public class KtXmlWriter(
         isPartiallyOpenTag = true
 
         namespaceHolder.incDepth()
-        ensureNamespaceIfRepairing(namespace, appliedPrefix)
+
+        if (prefix != "") {
+            ensureNamespaceIfRepairing(namespace, appliedPrefix)
+        }
     }
 
     override fun endTag(namespace: String?, localName: String, prefix: String?) {
@@ -675,7 +670,7 @@ public class KtXmlWriter(
             it[0xb] = true
             it[0xc] = true
             it[0xd] = true // needs escaping in all cases
-            for (i in 0xe .. 0x1f) it[i] = true
+            for (i in 0xe..0x1f) it[i] = true
             it['<'.code] = true
             it['>'.code] = true
             it['&'.code] = true
