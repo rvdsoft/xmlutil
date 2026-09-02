@@ -55,6 +55,7 @@ private constructor(
     public val repairNamespaces: Boolean = true,
     public val xmlDeclMode: XmlDeclMode = XmlDeclMode.None,
     public val indentString: String = "",
+    public val reuseNamespacePrefixes: Boolean = false,
     policy: XmlSerializationPolicy,
     nilAttribute: Pair<QName, String>? = null,
     public val xmlVersion: XmlVersion = XmlVersion.XML11,
@@ -120,6 +121,7 @@ private constructor(
         repairNamespaces = builder.repairNamespaces,
         xmlDeclMode = builder.xmlDeclMode,
         indentString = builder.indentString,
+        reuseNamespacePrefixes = builder.reuseNamespacePrefixes,
         policy = builder.policy ?: DefaultXmlSerializationPolicy.Builder10().apply {
             @Suppress("DEPRECATION")
             if (builder is CompatBuilder) isInlineCollapsedDefault = builder.isInlineCollapsed
@@ -158,6 +160,7 @@ private constructor(
         if (repairNamespaces != other.repairNamespaces) return false
         if (xmlDeclMode != other.xmlDeclMode) return false
         if (indentString != other.indentString) return false
+        if (reuseNamespacePrefixes != other.reuseNamespacePrefixes) return false
         if (policy != other.policy) return false
         if (xmlVersion != other.xmlVersion) return false
         if (nilAttributeName != other.nilAttributeName) return false
@@ -175,6 +178,7 @@ private constructor(
         var result = repairNamespaces.hashCode()
         result = 31 * result + xmlDeclMode.hashCode()
         result = 31 * result + indentString.hashCode()
+        result = 31 * result + reuseNamespacePrefixes.hashCode()
         result = 31 * result + policy.hashCode()
         result = 31 * result + xmlVersion.hashCode()
         result = 31 * result + (nilAttributeName?.hashCode() ?: 0)
@@ -207,12 +211,15 @@ private constructor(
         @ExperimentalXmlUtilApi
         public abstract var policy: P
 
+        public var reuseNamespacePrefixes: Boolean = true
+
         @OptIn(ExperimentalXmlUtilApi::class)
         internal constructor(config: XmlConfig) : this(
             repairNamespaces = config.repairNamespaces,
             xmlDeclMode = config.xmlDeclMode,
             indentString = config.indentString
         ) {
+            this.reuseNamespacePrefixes = config.reuseNamespacePrefixes
             this.nilAttribute = config.nilAttribute
             this.isCollectingNSAttributes = config.isCollectingNSAttributes
             this.xmlVersion = config.xmlVersion

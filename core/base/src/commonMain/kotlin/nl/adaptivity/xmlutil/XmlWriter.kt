@@ -402,13 +402,8 @@ public fun XmlWriter.writeCurrentEvent(reader: XmlReader, keepDuplicatedNsDecls:
     }
 }
 
-
-/**
- * Enhanced function for writing start tags, that will attempt to reuse prefixes.
- */
-@Suppress("unused")
-public fun XmlWriter.smartStartTag(qName: QName) {
-    smartStartTag(qName.getNamespaceURI(), qName.getLocalPart(), qName.getPrefix())
+public fun XmlWriter.smartStartTag(qName: QName, reuseExistingPrefix: Boolean) {
+    smartStartTag(qName.getNamespaceURI(), qName.getLocalPart(), qName.getPrefix(), reuseExistingPrefix)
 }
 
 /**
@@ -416,6 +411,12 @@ public fun XmlWriter.smartStartTag(qName: QName) {
  */
 public inline fun XmlWriter.smartStartTag(qName: QName, body: XmlWriter.() -> Unit) {
     smartStartTag(qName.getNamespaceURI(), qName.getLocalPart(), qName.getPrefix(), body)
+}
+
+public inline fun XmlWriter.smartStartTag(qName: QName, reuseExistingPrefix: Boolean, body: XmlWriter.() -> Unit) {
+    val usedPrefix = smartStartTag(qName.getNamespaceURI(), qName.getLocalPart(), qName.getPrefix(), reuseExistingPrefix)
+    body()
+    endTag(qName.getNamespaceURI(), qName.getLocalPart(), usedPrefix)
 }
 
 /**
@@ -431,7 +432,7 @@ public inline fun XmlWriter.smartStartTag(qName: QName, body: XmlWriter.() -> Un
  */
 @JvmOverloads
 @IgnorableReturnValue
-public fun XmlWriter.smartStartTag(nsUri: String?, localName: String, prefix: String? = null): String {
+public fun XmlWriter.smartStartTag(nsUri: String?, localName: String, prefix: String? = null, reuseExistingPrefix: Boolean = true): String {
     if (nsUri == null || nsUri == XMLConstants.XML_NS_URI || nsUri == XMLConstants.XMLNS_ATTRIBUTE_NS_URI) {
         val namespace = namespaceContext.getNamespaceURI(prefix ?: DEFAULT_NS_PREFIX) ?: NULL_NS_URI
         startTag(namespace, localName, prefix)
@@ -439,17 +440,22 @@ public fun XmlWriter.smartStartTag(nsUri: String?, localName: String, prefix: St
     } else {
         var writeNs = false
 
-        val usedPrefix = getPrefix(nsUri) ?: run {
+        val usedPrefix = (if (reuseExistingPrefix) getPrefix(nsUri) else null) ?: run {
             val currentNs = prefix?.let { getNamespaceUri(it) } ?: NULL_NS_URI
-            if (nsUri != currentNs) {
+
+            if (nsUri != currentNs && (reuseExistingPrefix || !prefix.isNullOrEmpty())) {
                 writeNs = true
             }
+
             prefix ?: DEFAULT_NS_PREFIX
         }
 
         startTag(nsUri, localName, usedPrefix)
 
-        if (writeNs) this.namespaceAttr(usedPrefix, nsUri)
+        if (writeNs) {
+            namespaceAttr(usedPrefix, nsUri)
+        }
+
         return usedPrefix
     }
 }

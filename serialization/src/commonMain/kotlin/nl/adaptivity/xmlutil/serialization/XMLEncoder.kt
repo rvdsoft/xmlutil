@@ -120,7 +120,7 @@ internal open class XmlEncoderBase internal constructor(
             when (xmlDescriptor.outputKind) {
                 OutputKind.Inline, // shouldn't occur, but treat as element
                 OutputKind.Element -> { // This may occur with list values.
-                    target.smartStartTag(serialName) {
+            target.smartStartTag(serialName, config.reuseNamespacePrefixes) {
                         if (discriminatorName != null) {
                             val typeRef = ensureNamespace(config.policy.typeQName(xmlDescriptor), false)
                             smartWriteAttribute(discriminatorName, typeRef.toCName())
@@ -161,7 +161,7 @@ internal open class XmlEncoderBase internal constructor(
         override fun encodeNull() {
             val nilAttr = config.nilAttribute
             if (xmlDescriptor.outputKind == OutputKind.Element && nilAttr != null) {
-                target.smartStartTag(serialName) {
+            target.smartStartTag(serialName, config.reuseNamespacePrefixes) {
                     if (discriminatorName != null) {
                         val typeRef = ensureNamespace(config.policy.typeQName(xmlDescriptor), true)
                         smartWriteAttribute(discriminatorName, typeRef.toCName())
@@ -545,7 +545,7 @@ internal open class XmlEncoderBase internal constructor(
             (xmlDescriptor as? XmlCompositeDescriptor)?.childReorderMap
 
         open fun writeBegin() {
-            target.smartStartTag(serialName)
+            target.smartStartTag(serialName, config.reuseNamespacePrefixes)
             writeNamespaceDecls()
             writeDiscriminatorAttributeIfNeeded()
         }
@@ -824,7 +824,7 @@ internal open class XmlEncoderBase internal constructor(
 
     internal inner class DeferredWriteStringElement(val elementDescriptor: XmlDescriptor, val value: String) : DeferredWrite() {
         override fun invoke(compositeEncoder: TagEncoder<*>, descriptor: SerialDescriptor, index: Int) {
-            target.smartStartTag(elementDescriptor.tagName) {
+            target.smartStartTag(elementDescriptor.tagName, config.reuseNamespacePrefixes) {
                 // Write the xml preserve attribute if the values starts or ends with whitespace
                 if (!elementDescriptor.defaultPreserveSpace.withDefault(true) &&
                     (value.first().isWhitespace() || value.last().isWhitespace())
@@ -840,7 +840,7 @@ internal open class XmlEncoderBase internal constructor(
 
     internal inner class DeferredWriteNilTag(val tagName: QName, val nilAttr: Pair<QName, String>) : DeferredWrite() {
         override fun invoke(compositeEncoder: TagEncoder<*>, descriptor: SerialDescriptor, index: Int) {
-            target.smartStartTag(tagName) {
+            target.smartStartTag(tagName, config.reuseNamespacePrefixes) {
                 smartWriteAttribute(nilAttr.first, nilAttr.second)
             }
         }
@@ -917,7 +917,7 @@ internal open class XmlEncoderBase internal constructor(
 
                             OutputKind.Mixed,
                             OutputKind.Inline,
-                            OutputKind.Element -> target.smartStartTag(childDesc.tagName) {
+                            OutputKind.Element -> target.smartStartTag(childDesc.tagName, config.reuseNamespacePrefixes) {
                                 text(value)
                             }
 
@@ -933,12 +933,12 @@ internal open class XmlEncoderBase internal constructor(
                 polymorphicMode == PolymorphicMode.TRANSPARENT -> {
                     when {
                         isMixed -> target.text(value)
-                        else -> target.smartStartTag(serialName) { text(value) }
+                        else -> target.smartStartTag(serialName, config.reuseNamespacePrefixes) { text(value) }
                     }
                 }
 
                 polymorphicMode is PolymorphicMode.ATTR -> {
-                    target.smartStartTag(serialName) {
+                            target.smartStartTag(serialName, config.reuseNamespacePrefixes) {
                         val attrQName = ensureNamespace(config.policy.typeQName(elementDescriptor), true)
                         smartWriteAttribute(polymorphicMode.name, attrQName.toCName())
 
@@ -1211,7 +1211,7 @@ internal open class XmlEncoderBase internal constructor(
 
                 val keyDescriptor = xmlDescriptor.getElementDescriptor(0)
                 if (mapDescriptor.isValueCollapsed) {
-                    target.smartStartTag(valueDescriptor.tagName) {
+                    target.smartStartTag(valueDescriptor.tagName, config.reuseNamespacePrefixes) {
                         // Use the primitive encoder to just get the serialized attribute value. This
                         // avoids issues with xml nesting.
                         val keyEncoder = PrimitiveEncoder(serializersModule, keyDescriptor)
@@ -1231,7 +1231,7 @@ internal open class XmlEncoderBase internal constructor(
                         }
                     }
                 } else {
-                    target.smartStartTag(mapDescriptor.entryName) { // Tag name is not good
+                    target.smartStartTag(mapDescriptor.entryName, config.reuseNamespacePrefixes) { // Tag name is not good
                         val keyEncoder = XmlEncoder(keyDescriptor, index - 1)
                         @Suppress("UNCHECKED_CAST") // it has been stored so cannot be typed
                         keyEncoder.encodeSerializableValue(keySerializer as SerializationStrategy<Any?>, keyValue)

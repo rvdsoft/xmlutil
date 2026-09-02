@@ -308,7 +308,7 @@ public open class DefaultXmlSerializationPolicy(builder: Builder) : XmlSerializa
 
         // otherwise, if it has a namespace, force an empty prefix so element goes into default ns
         if (name.namespaceURI.isNotEmpty()) {
-            return QName(namespaceURI = name.namespaceURI, localPart = name.localPart, prefix = "")
+            return QName(name.namespaceURI, name.localPart, "")
         }
 
         return name
