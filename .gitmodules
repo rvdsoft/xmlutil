@@ -1,6 +1,6 @@
 [submodule "pages"]
 	path = pages
-	url = ./
+	url = https://github.com/pdvrieze/xmlutil.git
 	branch = pages
 
 [submodule "xsdtests"]
